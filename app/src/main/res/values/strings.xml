@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Heart Monitor</string>
+    <string name="heart_rate_monitor">Heart Rate Monitor</string>
+    <string name="scan_for_devices">Scan for Devices</string>
+    <string name="stop_scan">Stop Scan</string>
+    <string name="scanning">Scanning…</string>
+    <string name="no_devices_found">No heart rate monitors found</string>
+    <string name="bluetooth_disabled">Bluetooth is disabled. Please enable it.</string>
+    <string name="permissions_required">Bluetooth permissions are required</string>
+    <string name="connect">Connect</string>
+    <string name="disconnect">Disconnect</string>
+    <string name="connected">Connected</string>
+    <string name="disconnected">Disconnected</string>
+    <string name="connecting">Connecting…</string>
+    <string name="heart_rate">Heart Rate</string>
+    <string name="bpm">bpm</string>
+    <string name="ecg_chart">ECG Chart</string>
+    <string name="device_name">Device: %s</string>
+    <string name="searching_for_monitors">Searching for heart rate monitors…</string>
+</resources>
