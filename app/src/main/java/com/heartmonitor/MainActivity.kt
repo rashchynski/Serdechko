@@ -7,15 +7,16 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.view.View
+import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.google.android.material.button.MaterialButton
 import androidx.recyclerview.widget.RecyclerView
-import android.view.View
-import android.widget.TextView
+import com.google.android.material.button.MaterialButton
 
 class MainActivity : AppCompatActivity() {
 
@@ -27,9 +28,22 @@ class MainActivity : AppCompatActivity() {
 
     private var isScanning = false
 
-    companion object {
-        private const val PERMISSION_REQUEST_CODE = 1
-        private const val ENABLE_BLUETOOTH_REQUEST_CODE = 2
+    private val requestBluetoothEnableLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            Toast.makeText(this, "Bluetooth enabled", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private val requestPermissionsLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        if (permissions.all { it.value }) {
+            checkBluetooth()
+        } else {
+            Toast.makeText(this, R.string.permissions_required, Toast.LENGTH_LONG).show()
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -88,11 +102,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         if (missingPermissions.isNotEmpty()) {
-            ActivityCompat.requestPermissions(
-                this,
-                missingPermissions.toTypedArray(),
-                PERMISSION_REQUEST_CODE
-            )
+            requestPermissionsLauncher.launch(missingPermissions.toTypedArray())
         } else {
             checkBluetooth()
         }
@@ -106,7 +116,7 @@ class MainActivity : AppCompatActivity() {
                     Manifest.permission.BLUETOOTH_CONNECT
                 ) == PackageManager.PERMISSION_GRANTED || Build.VERSION.SDK_INT < Build.VERSION_CODES.S
             ) {
-                startActivityForResult(enableBtIntent, ENABLE_BLUETOOTH_REQUEST_CODE)
+                requestBluetoothEnableLauncher.launch(enableBtIntent)
             }
         }
     }
@@ -136,30 +146,6 @@ class MainActivity : AppCompatActivity() {
         val intent = Intent(this, HeartRateMonitorActivity::class.java)
         intent.putExtra("device", device)
         startActivity(intent)
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == PERMISSION_REQUEST_CODE) {
-            if (grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
-                checkBluetooth()
-            } else {
-                Toast.makeText(this, R.string.permissions_required, Toast.LENGTH_LONG).show()
-            }
-        }
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == ENABLE_BLUETOOTH_REQUEST_CODE) {
-            if (resultCode == RESULT_OK) {
-                Toast.makeText(this, "Bluetooth enabled", Toast.LENGTH_SHORT).show()
-            }
-        }
     }
 
     override fun onDestroy() {

@@ -168,8 +168,9 @@ class HeartRateMonitorActivity : AppCompatActivity() {
             heartRateChart.moveViewToX(data.entryCount.toFloat())
 
             // Remove old entries to prevent memory issues
+            // Use set.removeEntry(0) to remove by index from the first dataset
             if (data.entryCount > 200) {
-                data.removeEntry(0, 0)
+                set?.removeEntry(0)
             }
         }
     }
