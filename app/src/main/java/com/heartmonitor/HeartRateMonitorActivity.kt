@@ -14,7 +14,6 @@ import com.github.mikephil.charting.data.LineDataSet
 import com.github.mikephil.charting.interfaces.datasets.ILineDataSet
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
-import kotlin.random.Random
 
 class HeartRateMonitorActivity : AppCompatActivity() {
 
@@ -28,6 +27,9 @@ class HeartRateMonitorActivity : AppCompatActivity() {
 
     private var currentHeartRate = 0
     private var chartXValue = 0f
+    private var minHeartRate = Float.MAX_VALUE
+    private var maxHeartRate = Float.MIN_VALUE
+    private val yAxisPadding = 5f
     private var chartEntries = ArrayList<Entry>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -155,21 +157,29 @@ class HeartRateMonitorActivity : AppCompatActivity() {
             isDragEnabled = false
             setScaleEnabled(false)
             setPinchZoom(false)
-            setDrawGridBackground(false)
+            setDrawGridBackground(true)
+            setGridBackgroundColor(Color.parseColor("#0D0D0D"))
             legend.isEnabled = false
+            setViewPortOffsets(60f, 20f, 20f, 20f)
 
             xAxis.apply {
-                setDrawGridLines(false)
+                setDrawGridLines(true)
+                gridColor = Color.parseColor("#1A3300")
                 setDrawAxisLine(false)
                 setDrawLabels(false)
+                gridLineWidth = 0.5f
             }
 
             axisLeft.apply {
-                textColor = Color.WHITE
+                textColor = Color.parseColor("#00FF00")
+                textSize = 10f
                 setDrawGridLines(true)
-                gridColor = Color.parseColor("#333333")
+                gridColor = Color.parseColor("#1A3300")
+                gridLineWidth = 0.5f
                 axisMinimum = 40f
                 axisMaximum = 200f
+                setDrawAxisLine(false)
+                setLabelCount(6, true)
             }
 
             axisRight.isEnabled = false
@@ -179,8 +189,9 @@ class HeartRateMonitorActivity : AppCompatActivity() {
                 color = Color.parseColor("#00FF00")
                 setDrawCircles(false)
                 setDrawValues(false)
-                lineWidth = 2f
-                mode = LineDataSet.Mode.CUBIC_BEZIER
+                lineWidth = 1.5f
+                mode = LineDataSet.Mode.LINEAR
+                setDrawFilled(false)
             }
 
             data = LineData(emptyDataSet as ILineDataSet)
@@ -202,34 +213,99 @@ class HeartRateMonitorActivity : AppCompatActivity() {
                 data.addDataSet(set)
             }
 
-            // Add the heart rate data point
-            data.addEntry(Entry(chartXValue, heartRate.toFloat()), 0)
-            chartXValue += 1f
+            val baselineHR = heartRate.toFloat()
 
-            // Simulate ECG-like waveform by adding intermediate points
-            // This creates a more realistic heartbeat pattern
-            if (currentHeartRate > 0) {
-                val baselineHR = heartRate.toFloat()
+            // Generate ECG-like PQRST waveform pattern
+            val ecgWaveform = generateECGWaveform(baselineHR)
 
-                // Add some variation to create ECG-like pattern
-                for (i in 1..5) {
-                    val variation = Random.nextFloat() * 10 - 5
-                    data.addEntry(Entry(chartXValue, baselineHR + variation), 0)
-                    chartXValue += 0.2f
-                }
+            // Track min/max for dynamic Y-axis
+            var waveformMin = baselineHR
+            var waveformMax = baselineHR
+
+            for (point in ecgWaveform) {
+                data.addEntry(Entry(chartXValue, point), 0)
+                chartXValue += 0.4f
+                if (point < waveformMin) waveformMin = point
+                if (point > waveformMax) waveformMax = point
             }
+
+            // Update global min/max tracking
+            if (waveformMin < minHeartRate) minHeartRate = waveformMin
+            if (waveformMax > maxHeartRate) maxHeartRate = waveformMax
+
+            // Dynamically adjust Y-axis based on observed values
+            updateYAxisRange()
 
             data.notifyDataChanged()
             heartRateChart.notifyDataSetChanged()
 
-            // Limit visible range to last 50 points for scrolling effect
-            heartRateChart.setVisibleXRangeMaximum(50f)
+            // Limit visible range for scrolling effect
+            heartRateChart.setVisibleXRangeMaximum(100f)
             heartRateChart.moveViewToX(data.entryCount.toFloat())
 
             // Remove old entries to prevent memory issues
-            // Use set.removeEntry(0) to remove by index from the first dataset
-            if (data.entryCount > 200) {
-                set?.removeEntry(0)
+            if (set != null && set.entryCount > 500) {
+                set.removeFirst()
+            }
+        }
+    }
+
+    private fun generateECGWaveform(baseline: Float): List<Float> {
+        val waveform = mutableListOf<Float>()
+        val amplitude = baseline * 0.15f
+
+        // Flat baseline before P wave
+        repeat(3) { waveform.add(baseline) }
+
+        // P wave (small bump)
+        waveform.add(baseline + amplitude * 0.15f)
+        waveform.add(baseline + amplitude * 0.25f)
+        waveform.add(baseline + amplitude * 0.2f)
+        waveform.add(baseline + amplitude * 0.1f)
+        waveform.add(baseline)
+
+        // PR segment (flat)
+        repeat(2) { waveform.add(baseline) }
+
+        // Q wave (small dip)
+        waveform.add(baseline - amplitude * 0.1f)
+
+        // R wave (tall spike up)
+        waveform.add(baseline + amplitude * 0.3f)
+        waveform.add(baseline + amplitude * 0.7f)
+        waveform.add(baseline + amplitude * 1.0f)
+        waveform.add(baseline + amplitude * 0.6f)
+
+        // S wave (dip below baseline)
+        waveform.add(baseline - amplitude * 0.3f)
+        waveform.add(baseline - amplitude * 0.15f)
+
+        // ST segment (return to baseline)
+        waveform.add(baseline)
+        repeat(2) { waveform.add(baseline) }
+
+        // T wave (rounded bump)
+        waveform.add(baseline + amplitude * 0.1f)
+        waveform.add(baseline + amplitude * 0.25f)
+        waveform.add(baseline + amplitude * 0.35f)
+        waveform.add(baseline + amplitude * 0.3f)
+        waveform.add(baseline + amplitude * 0.15f)
+        waveform.add(baseline)
+
+        // Flat baseline after T wave
+        repeat(5) { waveform.add(baseline) }
+
+        return waveform
+    }
+
+    private fun updateYAxisRange() {
+        if (minHeartRate != Float.MAX_VALUE && maxHeartRate != Float.MIN_VALUE) {
+            val range = maxHeartRate - minHeartRate
+            val padding = maxOf(range * 0.2f, yAxisPadding)
+
+            heartRateChart.axisLeft.apply {
+                axisMinimum = minHeartRate - padding
+                axisMaximum = maxHeartRate + padding
             }
         }
     }
@@ -240,8 +316,9 @@ class HeartRateMonitorActivity : AppCompatActivity() {
             color = Color.parseColor("#00FF00")
             setDrawCircles(false)
             setDrawValues(false)
-            lineWidth = 2f
-            mode = LineDataSet.Mode.CUBIC_BEZIER
+            lineWidth = 1.5f
+            mode = LineDataSet.Mode.LINEAR
+            setDrawFilled(false)
         }
         return set
     }
