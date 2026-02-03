@@ -28,7 +28,7 @@ class HeartRateMonitorActivity : AppCompatActivity() {
     private var chartXValue = 0f
     private var minHeartRate = Float.MAX_VALUE
     private var maxHeartRate = Float.MIN_VALUE
-    private val yAxisPadding = 15f
+    private val yAxisPadding = 5f
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
