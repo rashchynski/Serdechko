@@ -165,7 +165,7 @@ class HeartRateMonitorActivity : AppCompatActivity() {
 
             for (point in ecgWaveform) {
                 data.addEntry(Entry(chartXValue, point), 0)
-                chartXValue += 0.15f
+                chartXValue += 0.4f
                 if (point < waveformMin) waveformMin = point
                 if (point > waveformMax) waveformMax = point
             }
