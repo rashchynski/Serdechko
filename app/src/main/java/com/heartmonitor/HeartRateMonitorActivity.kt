@@ -32,6 +32,9 @@ class HeartRateMonitorActivity : AppCompatActivity() {
     private val yAxisPadding = 5f
     private var chartEntries = ArrayList<Entry>()
 
+    @Volatile
+    private var isViewInitialized = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_heart_rate_monitor)
@@ -45,15 +48,18 @@ class HeartRateMonitorActivity : AppCompatActivity() {
 
         initializeViews()
         setupChart()
+        isViewInitialized = true
 
         bluetoothManager = BluetoothLEManager(this)
 
         bluetoothManager.onConnectionStateChange = { connected ->
             runOnUiThread {
-                if (connected) {
-                    connectionStatusText?.text = getString(R.string.connected)
-                } else {
-                    connectionStatusText?.text = getString(R.string.disconnected)
+                if (isViewInitialized) {
+                    if (connected) {
+                        connectionStatusText?.text = getString(R.string.connected)
+                    } else {
+                        connectionStatusText?.text = getString(R.string.disconnected)
+                    }
                 }
             }
         }
@@ -61,8 +67,10 @@ class HeartRateMonitorActivity : AppCompatActivity() {
         bluetoothManager.onHeartRateReceived = { heartRate ->
             runOnUiThread {
                 currentHeartRate = heartRate
-                updateHeartRate(heartRate)
-                addChartEntry(heartRate)
+                if (isViewInitialized) {
+                    updateHeartRate(heartRate)
+                    addChartEntry(heartRate)
+                }
             }
         }
 
@@ -92,6 +100,9 @@ class HeartRateMonitorActivity : AppCompatActivity() {
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
 
+        // Prevent callbacks from accessing views during re-initialization
+        isViewInitialized = false
+
         // Save current chart entries before layout change
         saveChartEntries()
 
@@ -109,19 +120,21 @@ class HeartRateMonitorActivity : AppCompatActivity() {
         if (currentHeartRate > 0) {
             heartRateValue.text = currentHeartRate.toString()
         }
+
+        // Views are ready, allow callbacks to access them
+        isViewInitialized = true
     }
 
     private fun saveChartEntries() {
-        val data = heartRateChart.data
-        if (data != null) {
-            val set = data.getDataSetByIndex(0)
-            if (set != null) {
-                chartEntries.clear()
-                for (i in 0 until set.entryCount) {
-                    val entry = set.getEntryForIndex(i)
-                    chartEntries.add(Entry(entry.x, entry.y))
-                }
-            }
+        if (!::heartRateChart.isInitialized) return
+
+        val data = heartRateChart.data ?: return
+        val set = data.getDataSetByIndex(0) ?: return
+
+        chartEntries.clear()
+        for (i in 0 until set.entryCount) {
+            val entry = set.getEntryForIndex(i)
+            chartEntries.add(Entry(entry.x, entry.y))
         }
     }
 
