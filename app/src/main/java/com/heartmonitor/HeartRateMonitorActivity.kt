@@ -149,7 +149,11 @@ class HeartRateMonitorActivity : AppCompatActivity() {
                     }
                     data.notifyDataChanged()
                     heartRateChart.notifyDataSetChanged()
-                    heartRateChart.setVisibleXRangeMaximum(50f)
+
+                    // Use orientation-aware visible range
+                    val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+                    val visibleRange = if (isLandscape) 200f else 120f
+                    heartRateChart.setVisibleXRangeMaximum(visibleRange)
                     heartRateChart.moveViewToX(data.entryCount.toFloat())
                 }
             }
@@ -164,6 +168,8 @@ class HeartRateMonitorActivity : AppCompatActivity() {
     }
 
     private fun setupChart() {
+        val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
         heartRateChart.apply {
             description.isEnabled = false
             setTouchEnabled(false)
@@ -171,28 +177,37 @@ class HeartRateMonitorActivity : AppCompatActivity() {
             setScaleEnabled(false)
             setPinchZoom(false)
             setDrawGridBackground(true)
-            setGridBackgroundColor(Color.parseColor("#0D0D0D"))
+            setGridBackgroundColor(Color.parseColor("#0A0A0A"))
             legend.isEnabled = false
-            setViewPortOffsets(60f, 20f, 20f, 20f)
 
+            // Adjust viewport offsets based on orientation
+            if (isLandscape) {
+                setViewPortOffsets(40f, 30f, 30f, 30f)
+            } else {
+                setViewPortOffsets(50f, 15f, 15f, 15f)
+            }
+
+            // ECG-style grid - more lines for that classic ECG paper look
             xAxis.apply {
                 setDrawGridLines(true)
                 gridColor = Color.parseColor("#1A3300")
                 setDrawAxisLine(false)
                 setDrawLabels(false)
-                gridLineWidth = 0.5f
+                gridLineWidth = 0.3f
+                setGranularity(5f)
+                setGranularityEnabled(true)
             }
 
             axisLeft.apply {
-                textColor = Color.parseColor("#00FF00")
-                textSize = 10f
+                textColor = Color.parseColor("#00DD00")
+                textSize = if (isLandscape) 12f else 9f
                 setDrawGridLines(true)
                 gridColor = Color.parseColor("#1A3300")
-                gridLineWidth = 0.5f
+                gridLineWidth = 0.3f
                 axisMinimum = 40f
                 axisMaximum = 200f
                 setDrawAxisLine(false)
-                setLabelCount(6, true)
+                setLabelCount(8, true)
             }
 
             axisRight.isEnabled = false
@@ -202,9 +217,11 @@ class HeartRateMonitorActivity : AppCompatActivity() {
                 color = Color.parseColor("#00FF00")
                 setDrawCircles(false)
                 setDrawValues(false)
-                lineWidth = 1.5f
+                lineWidth = if (isLandscape) 2f else 1.8f
                 mode = LineDataSet.Mode.LINEAR
                 setDrawFilled(false)
+                // Add subtle highlight for ECG look
+                highLightColor = Color.parseColor("#00FF00")
             }
 
             data = LineData(emptyDataSet as ILineDataSet)
@@ -237,7 +254,7 @@ class HeartRateMonitorActivity : AppCompatActivity() {
 
             for (point in ecgWaveform) {
                 data.addEntry(Entry(chartXValue, point), 0)
-                chartXValue += 0.4f
+                chartXValue += 0.5f  // Slightly wider spacing for cleaner look
                 if (point < waveformMin) waveformMin = point
                 if (point > waveformMax) waveformMax = point
             }
@@ -252,12 +269,15 @@ class HeartRateMonitorActivity : AppCompatActivity() {
             data.notifyDataChanged()
             heartRateChart.notifyDataSetChanged()
 
-            // Limit visible range for scrolling effect
-            heartRateChart.setVisibleXRangeMaximum(100f)
+            // Adjust visible range based on orientation
+            val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+            val visibleRange = if (isLandscape) 200f else 120f
+            heartRateChart.setVisibleXRangeMaximum(visibleRange)
             heartRateChart.moveViewToX(data.entryCount.toFloat())
 
-            // Remove old entries to prevent memory issues
-            if (set != null && set.entryCount > 500) {
+            // Remove old entries to prevent memory issues (keep more entries for landscape)
+            val maxEntries = if (isLandscape) 800 else 500
+            if (set != null && set.entryCount > maxEntries) {
                 set.removeFirst()
             }
         }
@@ -265,48 +285,53 @@ class HeartRateMonitorActivity : AppCompatActivity() {
 
     private fun generateECGWaveform(baseline: Float): List<Float> {
         val waveform = mutableListOf<Float>()
-        val amplitude = baseline * 0.15f
+        // Larger amplitude for more dramatic ECG appearance
+        val amplitude = baseline * 0.25f
 
-        // Flat baseline before P wave
-        repeat(3) { waveform.add(baseline) }
+        // Extended flat baseline before P wave (more spacing = less spikes)
+        repeat(8) { waveform.add(baseline) }
 
-        // P wave (small bump)
+        // P wave (small atrial depolarization bump)
+        waveform.add(baseline + amplitude * 0.08f)
         waveform.add(baseline + amplitude * 0.15f)
-        waveform.add(baseline + amplitude * 0.25f)
-        waveform.add(baseline + amplitude * 0.2f)
-        waveform.add(baseline + amplitude * 0.1f)
+        waveform.add(baseline + amplitude * 0.18f)
+        waveform.add(baseline + amplitude * 0.15f)
+        waveform.add(baseline + amplitude * 0.08f)
         waveform.add(baseline)
 
-        // PR segment (flat)
-        repeat(2) { waveform.add(baseline) }
+        // PR segment (flat - AV node delay)
+        repeat(4) { waveform.add(baseline) }
 
-        // Q wave (small dip)
-        waveform.add(baseline - amplitude * 0.1f)
+        // Q wave (small dip - septal depolarization)
+        waveform.add(baseline - amplitude * 0.08f)
+        waveform.add(baseline - amplitude * 0.12f)
 
-        // R wave (tall spike up)
-        waveform.add(baseline + amplitude * 0.3f)
-        waveform.add(baseline + amplitude * 0.7f)
-        waveform.add(baseline + amplitude * 1.0f)
+        // R wave (tall spike up - ventricular depolarization)
+        waveform.add(baseline + amplitude * 0.2f)
         waveform.add(baseline + amplitude * 0.6f)
+        waveform.add(baseline + amplitude * 1.0f)  // Peak
+        waveform.add(baseline + amplitude * 0.5f)
 
         // S wave (dip below baseline)
-        waveform.add(baseline - amplitude * 0.3f)
-        waveform.add(baseline - amplitude * 0.15f)
-
-        // ST segment (return to baseline)
-        waveform.add(baseline)
-        repeat(2) { waveform.add(baseline) }
-
-        // T wave (rounded bump)
-        waveform.add(baseline + amplitude * 0.1f)
-        waveform.add(baseline + amplitude * 0.25f)
-        waveform.add(baseline + amplitude * 0.35f)
-        waveform.add(baseline + amplitude * 0.3f)
-        waveform.add(baseline + amplitude * 0.15f)
+        waveform.add(baseline - amplitude * 0.25f)
+        waveform.add(baseline - amplitude * 0.12f)
         waveform.add(baseline)
 
-        // Flat baseline after T wave
+        // ST segment (isoelectric - early ventricular repolarization)
         repeat(5) { waveform.add(baseline) }
+
+        // T wave (rounded bump - ventricular repolarization)
+        waveform.add(baseline + amplitude * 0.05f)
+        waveform.add(baseline + amplitude * 0.12f)
+        waveform.add(baseline + amplitude * 0.2f)
+        waveform.add(baseline + amplitude * 0.25f)
+        waveform.add(baseline + amplitude * 0.22f)
+        waveform.add(baseline + amplitude * 0.15f)
+        waveform.add(baseline + amplitude * 0.08f)
+        waveform.add(baseline)
+
+        // Extended flat baseline after T wave (TP segment - more spacing)
+        repeat(12) { waveform.add(baseline) }
 
         return waveform
     }
@@ -314,24 +339,34 @@ class HeartRateMonitorActivity : AppCompatActivity() {
     private fun updateYAxisRange() {
         if (minHeartRate != Float.MAX_VALUE && maxHeartRate != Float.MIN_VALUE) {
             val range = maxHeartRate - minHeartRate
-            val padding = maxOf(range * 0.2f, yAxisPadding)
+            // More generous padding for ECG-like appearance (25% of range, min 10)
+            val padding = maxOf(range * 0.25f, 10f)
 
             heartRateChart.axisLeft.apply {
-                axisMinimum = minHeartRate - padding
-                axisMaximum = maxHeartRate + padding
+                // Ensure reasonable bounds
+                val newMin = maxOf(minHeartRate - padding, 20f)
+                val newMax = minOf(maxHeartRate + padding, 250f)
+
+                // Only update if values have changed significantly to avoid jitter
+                if (kotlin.math.abs(axisMinimum - newMin) > 2f || kotlin.math.abs(axisMaximum - newMax) > 2f) {
+                    axisMinimum = newMin
+                    axisMaximum = newMax
+                }
             }
         }
     }
 
     private fun createSet(): LineDataSet {
+        val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         val set = LineDataSet(null, "Heart Rate")
         set.apply {
             color = Color.parseColor("#00FF00")
             setDrawCircles(false)
             setDrawValues(false)
-            lineWidth = 1.5f
+            lineWidth = if (isLandscape) 2f else 1.8f
             mode = LineDataSet.Mode.LINEAR
             setDrawFilled(false)
+            highLightColor = Color.parseColor("#00FF00")
         }
         return set
     }

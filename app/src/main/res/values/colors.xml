@@ -11,4 +11,7 @@
     <color name="dark_red">#C2185B</color>
     <color name="chart_background">#1A1A1A</color>
     <color name="ecg_line">#00FF00</color>
+    <color name="ecg_green">#00FF00</color>
+    <color name="ecg_grid">#1A3300</color>
+    <color name="ecg_grid_major">#2D4D00</color>
 </resources>
