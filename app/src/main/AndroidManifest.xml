@@ -41,7 +41,7 @@
         <activity
             android:name=".HeartRateMonitorActivity"
             android:exported="false"
-            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|screenLayout"
             android:label="@string/heart_rate_monitor" />
     </application>
 
