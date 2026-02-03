@@ -2,6 +2,7 @@ package com.heartmonitor
 
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothDevice
+import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Bundle
 import android.widget.TextView
@@ -20,13 +21,14 @@ class HeartRateMonitorActivity : AppCompatActivity() {
     private lateinit var bluetoothManager: BluetoothLEManager
     private lateinit var heartRateChart: LineChart
     private lateinit var heartRateValue: TextView
-    private lateinit var deviceNameText: TextView
-    private lateinit var connectionStatusText: TextView
-    private lateinit var disconnectButton: MaterialButton
-    private lateinit var toolbar: MaterialToolbar
+    private var deviceNameText: TextView? = null
+    private var connectionStatusText: TextView? = null
+    private var disconnectButton: MaterialButton? = null
+    private var toolbar: MaterialToolbar? = null
 
     private var currentHeartRate = 0
     private var chartXValue = 0f
+    private var chartEntries = ArrayList<Entry>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,17 +41,7 @@ class HeartRateMonitorActivity : AppCompatActivity() {
             intent.getParcelableExtra("device")
         }
 
-        heartRateChart = findViewById(R.id.heartRateChart)
-        heartRateValue = findViewById(R.id.heartRateValue)
-        deviceNameText = findViewById(R.id.deviceNameText)
-        connectionStatusText = findViewById(R.id.connectionStatusText)
-        disconnectButton = findViewById(R.id.disconnectButton)
-        toolbar = findViewById(R.id.toolbar)
-
-        toolbar.setNavigationOnClickListener {
-            finish()
-        }
-
+        initializeViews()
         setupChart()
 
         bluetoothManager = BluetoothLEManager(this)
@@ -57,9 +49,9 @@ class HeartRateMonitorActivity : AppCompatActivity() {
         bluetoothManager.onConnectionStateChange = { connected ->
             runOnUiThread {
                 if (connected) {
-                    connectionStatusText.text = getString(R.string.connected)
+                    connectionStatusText?.text = getString(R.string.connected)
                 } else {
-                    connectionStatusText.text = getString(R.string.disconnected)
+                    connectionStatusText?.text = getString(R.string.disconnected)
                 }
             }
         }
@@ -75,17 +67,84 @@ class HeartRateMonitorActivity : AppCompatActivity() {
         device?.let {
             connectToDevice(it)
         }
+    }
 
-        disconnectButton.setOnClickListener {
+    private fun initializeViews() {
+        heartRateChart = findViewById(R.id.heartRateChart)
+        heartRateValue = findViewById(R.id.heartRateValue)
+        deviceNameText = findViewById(R.id.deviceNameText)
+        connectionStatusText = findViewById(R.id.connectionStatusText)
+        disconnectButton = findViewById(R.id.disconnectButton)
+        toolbar = findViewById(R.id.toolbar)
+
+        toolbar?.setNavigationOnClickListener {
+            finish()
+        }
+
+        disconnectButton?.setOnClickListener {
             bluetoothManager.disconnect()
             finish()
         }
     }
 
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+
+        // Save current chart entries before layout change
+        saveChartEntries()
+
+        // Re-inflate the layout for new orientation
+        setContentView(R.layout.activity_heart_rate_monitor)
+
+        // Re-bind views
+        initializeViews()
+
+        // Re-setup chart and restore data
+        setupChart()
+        restoreChartEntries()
+
+        // Update BPM display with current value
+        if (currentHeartRate > 0) {
+            heartRateValue.text = currentHeartRate.toString()
+        }
+    }
+
+    private fun saveChartEntries() {
+        val data = heartRateChart.data
+        if (data != null) {
+            val set = data.getDataSetByIndex(0)
+            if (set != null) {
+                chartEntries.clear()
+                for (i in 0 until set.entryCount) {
+                    val entry = set.getEntryForIndex(i)
+                    chartEntries.add(Entry(entry.x, entry.y))
+                }
+            }
+        }
+    }
+
+    private fun restoreChartEntries() {
+        if (chartEntries.isNotEmpty()) {
+            val data = heartRateChart.data
+            if (data != null) {
+                val set = data.getDataSetByIndex(0) as? LineDataSet
+                set?.let {
+                    for (entry in chartEntries) {
+                        data.addEntry(entry, 0)
+                    }
+                    data.notifyDataChanged()
+                    heartRateChart.notifyDataSetChanged()
+                    heartRateChart.setVisibleXRangeMaximum(50f)
+                    heartRateChart.moveViewToX(data.entryCount.toFloat())
+                }
+            }
+        }
+    }
+
     @SuppressLint("MissingPermission")
     private fun connectToDevice(device: BluetoothDevice) {
-        deviceNameText.text = getString(R.string.device_name, device.name ?: "Unknown")
-        connectionStatusText.text = getString(R.string.connecting)
+        deviceNameText?.text = getString(R.string.device_name, device.name ?: "Unknown")
+        connectionStatusText?.text = getString(R.string.connecting)
         bluetoothManager.connectToDevice(device)
     }
 
